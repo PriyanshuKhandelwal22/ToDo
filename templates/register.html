@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register — FocusFlow</title>
+  <meta name="description" content="Create a free FocusFlow account to start managing your tasks." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:           #0d0f1a;
+      --glass:        rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.10);
+      --accent:       #7c5cfc;
+      --accent-glow:  rgba(124,92,252,0.35);
+      --accent2:      #56c0f5;
+      --text:         #e8eaf6;
+      --muted:        #7b82a8;
+      --danger:       #f85f7a;
+      --success:      #3ecf8e;
+      --info:         #56c0f5;
+      --radius:       16px;
+      --tr:           0.25s cubic-bezier(.4,0,.2,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image:
+        radial-gradient(ellipse at 80% 10%, rgba(86,192,245,.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 20% 90%, rgba(124,92,252,.16) 0%, transparent 55%);
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 40px 36px;
+      backdrop-filter: blur(20px);
+      animation: popIn .45s cubic-bezier(.34,1.56,.64,1) both;
+    }
+
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo-text {
+      font-size: 1.8rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .logo-sub { color: var(--muted); font-size: .85rem; margin-top: 5px; }
+
+    h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 22px; }
+
+    /* Flash */
+    .flash-list { list-style: none; margin-bottom: 18px; display: flex; flex-direction: column; gap: 8px; }
+    .flash { padding: 10px 14px; border-radius: 10px; font-size: .85rem; font-weight: 500; border-left: 3px solid; }
+    .flash.error   { background: rgba(248,95,122,.12);  border-color: var(--danger);  color: var(--danger); }
+    .flash.success { background: rgba(62,207,142,.12);  border-color: var(--success); color: var(--success); }
+    .flash.info    { background: rgba(86,192,245,.12);  border-color: var(--info);    color: var(--info); }
+
+    /* Form */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: .8rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 7px;
+    }
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color var(--tr), box-shadow var(--tr);
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    input::placeholder { color: var(--muted); }
+
+    .hint { font-size: .75rem; color: var(--muted); margin-top: 5px; }
+
+    .btn-submit {
+      width: 100%; margin-top: 8px;
+      background: linear-gradient(135deg, var(--accent2), #5fb3f8);
+      border: none; border-radius: 10px; padding: 14px;
+      color: #fff; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 1rem;
+      cursor: pointer;
+      transition: transform var(--tr), box-shadow var(--tr);
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(86,192,245,.35);
+    }
+    .btn-submit:active { transform: translateY(0); }
+
+    .footer-link { text-align: center; margin-top: 22px; font-size: .85rem; color: var(--muted); }
+    .footer-link a { color: var(--accent); text-decoration: none; font-weight: 500; transition: color var(--tr); }
+    .footer-link a:hover { color: #fff; }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.92) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-text">⚡ FocusFlow</div>
+      <div class="logo-sub">Stay focused. Get things done.</div>
+    </div>
+
+    <h1>Create your free account</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('register') }}" id="register-form">
+      <div class="field">
+        <label for="reg-email">Email Address</label>
+        <input
+          type="email"
+          id="reg-email"
+          name="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+        />
+      </div>
+      <div class="field">
+        <label for="reg-password">Password</label>
+        <input
+          type="password"
+          id="reg-password"
+          name="password"
+          placeholder="••••••••"
+          required
+          autocomplete="new-password"
+          minlength="6"
+        />
+        <div class="hint">Minimum 6 characters</div>
+      </div>
+      <div class="field">
+        <label for="reg-confirm">Confirm Password</label>
+        <input
+          type="password"
+          id="reg-confirm"
+          name="confirm"
+          placeholder="••••••••"
+          required
+          autocomplete="new-password"
+        />
+      </div>
+      <button type="submit" class="btn-submit" id="register-submit-btn">Create Account</button>
+    </form>
+
+    <div class="footer-link">
+      Already have an account?
+      <a href="{{ url_for('login') }}" id="go-to-login">Sign in</a>
+    </div>
+  </div>
+</body>
+</html>

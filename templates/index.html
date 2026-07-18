@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusFlow — To-Do List</title>
+  <meta name="description" content="A beautiful, distraction-free to-do list app built with Flask." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --bg:          #0d0f1a;
+      --surface:     #141726;
+      --glass:       rgba(255,255,255,0.05);
+      --glass-border:rgba(255,255,255,0.10);
+      --accent:      #7c5cfc;
+      --accent-glow: rgba(124, 92, 252, 0.35);
+      --accent2:     #56c0f5;
+      --text:        #e8eaf6;
+      --muted:       #7b82a8;
+      --danger:      #f85f7a;
+      --success:     #3ecf8e;
+      --warn:        #f5c842;
+      --radius:      14px;
+      --transition:  0.25s cubic-bezier(.4,0,.2,1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(124,92,252,.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 80%, rgba(86,192,245,.12) 0%, transparent 55%);
+    }
+
+    /* ── Nav Bar ── */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 28px;
+      background: rgba(13,15,26,.75);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .navbar .brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .navbar .user-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .navbar .user-email {
+      font-size: .82rem;
+      color: var(--muted);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .navbar .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid rgba(248,95,122,.35);
+      border-radius: 8px;
+      padding: 6px 14px;
+      color: var(--danger);
+      font-family: 'Inter', sans-serif;
+      font-size: .8rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background var(--transition), transform var(--transition);
+    }
+    .btn-logout:hover { background: rgba(248,95,122,.12); transform: translateY(-1px); }
+
+    /* ── Flash Messages ── */
+    .flash-list { list-style: none; margin-bottom: 18px; display: flex; flex-direction: column; gap: 8px; }
+    .flash { padding: 10px 14px; border-radius: 10px; font-size: .85rem; font-weight: 500; border-left: 3px solid; }
+    .flash.error   { background: rgba(248,95,122,.12);  border-color: var(--danger);  color: var(--danger); }
+    .flash.success { background: rgba(62,207,142,.12);  border-color: var(--success); color: var(--success); }
+    .flash.info    { background: rgba(86,192,245,.12);  border-color: var(--accent2); color: var(--accent2); }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 80px 20px 80px;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+      animation: fadeDown .5s ease both;
+    }
+    header .logo {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+    }
+    header p {
+      color: var(--muted);
+      font-size: .9rem;
+      margin-top: 6px;
+    }
+
+    /* ── Stats Bar ── */
+    .stats {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      animation: fadeDown .5s .1s ease both;
+    }
+    .stat-card {
+      flex: 1;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      backdrop-filter: blur(12px);
+      text-align: center;
+    }
+    .stat-card .num {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-card .label { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Progress Bar ── */
+    .progress-wrap {
+      margin-bottom: 28px;
+      animation: fadeDown .5s .15s ease both;
+    }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: .8rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .progress-bar {
+      background: var(--glass);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      transition: width .5s ease;
+    }
+
+    /* ── Add-Task Form ── */
+    .add-form {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 28px;
+      backdrop-filter: blur(12px);
+      animation: fadeDown .5s .2s ease both;
+    }
+    .add-form h2 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 14px;
+    }
+    .form-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .form-row input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    .form-row input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .form-row input::placeholder { color: var(--muted); }
+
+    .priority-select {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: .9rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color var(--transition);
+    }
+    .priority-select:focus { border-color: var(--accent); }
+    .priority-select option { background: #1a1d30; }
+
+    .btn-add {
+      background: linear-gradient(135deg, var(--accent), #9b7bfe);
+      border: none;
+      border-radius: 10px;
+      padding: 12px 22px;
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: .95rem;
+      cursor: pointer;
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+      white-space: nowrap;
+    }
+    .btn-add:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+    .btn-add:active { transform: translateY(0); }
+
+    /* ── Task List ── */
+    .task-list { animation: fadeDown .5s .3s ease both; }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .section-header h2 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .btn-clear {
+      background: transparent;
+      border: 1px solid rgba(248,95,122,.35);
+      border-radius: 8px;
+      padding: 6px 14px;
+      color: var(--danger);
+      font-family: 'Inter', sans-serif;
+      font-size: .8rem;
+      cursor: pointer;
+      transition: background var(--transition), transform var(--transition);
+    }
+    .btn-clear:hover { background: rgba(248,95,122,.12); transform: translateY(-1px); }
+
+    /* ── Task Card ── */
+    .task-card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+      animation: slideIn .3s ease both;
+    }
+    .task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.3); }
+    .task-card.done { opacity: .55; }
+    .task-card.done .task-title { text-decoration: line-through; color: var(--muted); }
+
+    /* Priority accent strip */
+    .task-card { border-left-width: 3px; }
+    .task-card.p-high   { border-left-color: var(--danger); }
+    .task-card.p-medium { border-left-color: var(--warn);   }
+    .task-card.p-low    { border-left-color: var(--success); }
+
+    /* Checkbox */
+    .task-check-form { margin: 0; }
+    .check-btn {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--glass-border);
+      background: transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), border-color var(--transition);
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .task-card.done .check-btn {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    .check-btn:hover { border-color: var(--success); }
+    .check-btn svg { display: none; }
+    .task-card.done .check-btn svg { display: block; }
+
+    /* Task info */
+    .task-info { flex: 1; min-width: 0; }
+    .task-title { font-size: .95rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta  { font-size: .75rem; color: var(--muted); margin-top: 3px; }
+    .priority-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-right: 6px;
+    }
+    .badge-high   { background: rgba(248,95,122,.15); color: var(--danger); }
+    .badge-medium { background: rgba(245,200,66,.15);  color: var(--warn);   }
+    .badge-low    { background: rgba(62,207,142,.15);  color: var(--success); }
+
+    /* Delete button */
+    .delete-form { margin: 0; }
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 8px;
+      transition: color var(--transition), background var(--transition);
+      display: flex; align-items: center;
+    }
+    .btn-delete:hover { color: var(--danger); background: rgba(248,95,122,.1); }
+
+    /* ── Empty State ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 14px; }
+    .empty-state p { font-size: .95rem; }
+
+    /* ── Animations ── */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 500px) {
+      .form-row { flex-direction: column; }
+      .stats { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Nav Bar -->
+  <nav class="navbar">
+    <div class="brand">⚡ FocusFlow</div>
+    <div class="user-area">
+      <div class="avatar">{{ current_user.email[0].upper() }}</div>
+      <span class="user-email">{{ current_user.email }}</span>
+      <a href="{{ url_for('logout') }}" class="btn-logout" id="logout-btn">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div class="logo">⚡ FocusFlow</div>
+      <p>Stay focused. Get things done.</p>
+    </header>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flash-list">
+          {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="num">{{ total }}</div>
+        <div class="label">Total Tasks</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">{{ done }}</div>
+        <div class="label">Completed</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">{{ total - done }}</div>
+        <div class="label">Remaining</div>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    {% set pct = ((done / total * 100) | int) if total > 0 else 0 %}
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>Progress</span>
+        <span>{{ pct }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" data-pct="{{ pct }}"></div>
+      </div>
+    </div>
+
+    <!-- Add Task Form -->
+    <div class="add-form">
+      <h2>New Task</h2>
+      <form action="/add" method="POST" class="form-row" id="add-task-form">
+        <input
+          type="text"
+          name="title"
+          id="task-title-input"
+          placeholder="What do you need to do?"
+          required
+          autocomplete="off"
+        />
+        <select name="priority" id="priority-select" class="priority-select">
+          <option value="high">🔴 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+        <button type="submit" class="btn-add" id="add-task-btn">+ Add Task</button>
+      </form>
+    </div>
+
+    <!-- Task List -->
+    <div class="task-list">
+      <div class="section-header">
+        <h2>Tasks ({{ total }})</h2>
+        {% if done > 0 %}
+        <form action="/clear-completed" method="POST">
+          <button type="submit" class="btn-clear" id="clear-completed-btn">Clear Completed</button>
+        </form>
+        {% endif %}
+      </div>
+
+      {% if tasks %}
+        {% for task in tasks | sort(attribute='completed') %}
+        <div class="task-card {{ 'done' if task.completed else '' }} p-{{ task.priority }}" id="task-{{ task.id }}">
+
+          <!-- Toggle Checkbox -->
+          <form action="/toggle/{{ task.id }}" method="POST" class="task-check-form">
+            <button type="submit" class="check-btn" id="check-btn-{{ task.id }}" title="Toggle complete">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </form>
+
+          <!-- Task Info -->
+          <div class="task-info">
+            <div class="task-title">{{ task.title }}</div>
+            <div class="task-meta">
+              <span class="priority-badge badge-{{ task.priority }}">{{ task.priority }}</span>
+              {{ task.created_fmt }}
+            </div>
+          </div>
+
+          <!-- Delete -->
+          <form action="/delete/{{ task.id }}" method="POST" class="delete-form">
+            <button type="submit" class="btn-delete" id="delete-btn-{{ task.id }}" title="Delete task">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path>
+                <path d="M10 11v6M14 11v6"></path>
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+              </svg>
+            </button>
+          </form>
+
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" id="empty-state">
+          <div class="icon">✅</div>
+          <p>No tasks yet — add one above to get started!</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const fill = document.getElementById("progress-fill");
+      if (fill) {
+        const pct = fill.getAttribute("data-pct") || 0;
+        fill.style.width = pct + "%";
+      }
+    });
+  </script>
+</body>
+</html>
