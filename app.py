@@ -26,6 +26,14 @@ if database_url:
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+pg8000://", 1)
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+    
+    # Explicitly configure SSL for pg8000 (required for Neon and Supabase)
+    if "pg8000" in database_url:
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+            "connect_args": {
+                "sslmode": "require"
+            }
+        }
 elif os.environ.get("VERCEL"):
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/focusflow.db"
 else:
@@ -35,9 +43,20 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# Ensure tables are created (critical for Vercel imports since __name__ != "__main__")
-with app.app_context():
-    db.create_all()
+# Log database connection target (masking password) for Vercel debug logging
+db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+if "@" in db_uri:
+    print(f"[DB LOG] Connecting to database host: {db_uri.split('@')[-1]}")
+else:
+    print(f"[DB LOG] Connecting to database: {db_uri}")
+
+# Ensure tables are created safely without crashing the WSGI server on boot if connection fails
+try:
+    with app.app_context():
+        db.create_all()
+    print("[DB LOG] Database tables successfully verified/created.")
+except Exception as e:
+    print(f"[DB LOG ERROR] Database initialization failed: {e}")
 
 login_manager = LoginManager(app)
 login_manager.login_view = "login"          # redirect here when @login_required fails
