@@ -29,9 +29,10 @@ if database_url:
     
     # Explicitly configure SSL for pg8000 (required for Neon and Supabase)
     if "pg8000" in database_url:
+        import ssl
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
             "connect_args": {
-                "sslmode": "require"
+                "ssl_context": ssl.create_default_context()
             }
         }
 elif os.environ.get("VERCEL"):
