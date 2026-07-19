@@ -36,20 +36,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# Log database connection target (masking password) for Vercel debug logging
-db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
-if "@" in db_uri:
-    print(f"[DB LOG] Connecting to database host: {db_uri.split('@')[-1]}")
-else:
-    print(f"[DB LOG] Connecting to database: {db_uri}")
 
-# Ensure tables are created safely without crashing the WSGI server on boot if connection fails
-try:
-    with app.app_context():
-        db.create_all()
-    print("[DB LOG] Database tables successfully verified/created.")
-except Exception as e:
-    print(f"[DB LOG ERROR] Database initialization failed: {e}")
 
 login_manager = LoginManager(app)
 login_manager.login_view = "login"          # redirect here when @login_required fails
@@ -92,6 +79,15 @@ class Task(db.Model):
     @property
     def created_fmt(self) -> str:
         return self.created_at.strftime("%b %d, %Y %I:%M %p")
+
+
+# ──────────────────────────────────────────────
+#  Create tables after models are defined
+#  (must run AFTER User & Task are registered)
+# ──────────────────────────────────────────────
+
+with app.app_context():
+    db.create_all()
 
 
 # ──────────────────────────────────────────────
