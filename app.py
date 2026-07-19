@@ -1,4 +1,6 @@
 import os
+import ssl
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from datetime import datetime
 from flask import (
     Flask, render_template, request, redirect, url_for, flash
@@ -17,24 +19,30 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 
-# Database Configuration: Local SQLite, Vercel /tmp SQLite, or Remote SQL database
+# Database Configuration: Local SQLite, Vercel /tmp SQLite, or Remote PostgreSQL
 database_url = os.environ.get("DATABASE_URL")
 if database_url:
-    # Use pure-Python pg8000 driver instead of psycopg2 to prevent C compilation build errors on Windows/Python 3.14
+    # Switch to pg8000 driver (pure Python, no C compiler needed)
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+pg8000://", 1)
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+pg8000://", 1)
+
+    # pg8000 does NOT accept 'sslmode' as a connect() argument.
+    # Neon/Supabase URLs contain ?sslmode=require which SQLAlchemy passes through.
+    # We must STRIP it from the URL and supply SSL via ssl_context instead.
+    parsed = urlparse(database_url)
+    query_params = parse_qs(parsed.query, keep_blank_values=True)
+    query_params.pop("sslmode", None)  # remove sslmode — incompatible with pg8000
+    clean_query = urlencode({k: v[0] for k, v in query_params.items()})
+    database_url = urlunparse(parsed._replace(query=clean_query))
+
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url
-    
-    # Explicitly configure SSL for pg8000 (required for Neon and Supabase)
-    if "pg8000" in database_url:
-        import ssl
-        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-            "connect_args": {
-                "ssl_context": ssl.create_default_context()
-            }
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "connect_args": {
+            "ssl_context": ssl.create_default_context()  # pg8000 SSL style
         }
+    }
 elif os.environ.get("VERCEL"):
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/focusflow.db"
 else:
